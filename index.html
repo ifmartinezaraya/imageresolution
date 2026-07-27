@@ -219,6 +219,40 @@
       @keyframes spin { to { transform: rotate(360deg); } }
       footer { text-align: center; color: var(--muted); font-size: 0.85rem; margin-top: 40px; }
       footer a { color: var(--accent); text-decoration: none; }
+
+      /* ---- Responsive / móvil ---- */
+      @media (max-width: 640px) {
+        body { padding: 16px; }
+        .brand { margin-bottom: 24px; gap: 10px; }
+        .brand svg { width: 34px; height: 34px; }
+        .wordmark { font-size: 1.25rem; }
+        header.hero { margin-bottom: 28px; }
+        header.hero p { font-size: 0.95rem; margin-top: 12px; }
+        .panel { padding: 16px; border-radius: 16px; margin-bottom: 16px; }
+        h2 { font-size: 1.05rem; margin-bottom: 14px; }
+        #dropzone { padding: 28px 14px; }
+        .preview-original { flex-direction: column; text-align: center; }
+        .preview-original img { max-width: 90px; max-height: 90px; }
+
+        /* Filas de tamaños: nombre a ancho completo, y ancho/alto en la 2ª línea */
+        .size-row { flex-wrap: wrap; gap: 8px; }
+        .size-row input[type="text"] { flex: 1 1 100%; min-width: 0; }
+        .size-row input[type="number"] { flex: 1; width: auto; min-width: 0; }
+
+        /* Controles y formatos ocupan mejor el ancho */
+        .controls { gap: 8px; }
+        .controls .btn-secondary { flex: 1 1 auto; }
+        .fmt-check { flex: 1 1 calc(50% - 8px); justify-content: center; }
+        label.field { width: 100%; }
+        .fit-select { flex: 1; }
+
+        /* Calidad y botón principal */
+        .quality-row { gap: 12px; }
+        .btn-primary { width: 100%; }
+
+        /* Resultados: una columna */
+        .grid { grid-template-columns: 1fr; gap: 16px; }
+      }
     </style>
   </head>
   <body>
