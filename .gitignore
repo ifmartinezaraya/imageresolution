@@ -1,0 +1,5 @@
+node_modules
+salida_prueba
+*.log
+.DS_Store
+.env
