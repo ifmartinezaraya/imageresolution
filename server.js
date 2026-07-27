@@ -96,10 +96,20 @@ app.post("/upload", upload.single("image"), async (req, res) => {
         .toBuffer();
 
       // AVIF con effort bajo (2): más rápido y menos memoria, ideal para instancias pequeñas.
-      const avifBuffer = await sharp(originalImage)
-        .resize({ width: size.width, height: size.height, fit })
-        .avif({ quality: 50, effort: 2 })
-        .toBuffer();
+      // Si el entorno no soporta AVIF, no fallamos: devolvemos solo el WebP.
+      let avif = null;
+      try {
+        const avifBuffer = await sharp(originalImage)
+          .resize({ width: size.width, height: size.height, fit })
+          .avif({ quality: 50, effort: 2 })
+          .toBuffer();
+        avif = {
+          dataUri: `data:image/avif;base64,${avifBuffer.toString("base64")}`,
+          sizeKB: +(avifBuffer.length / 1024).toFixed(2),
+        };
+      } catch (avifErr) {
+        console.warn("AVIF no disponible para este tamaño:", avifErr.message);
+      }
 
       results.push({
         label: size.label,
@@ -109,10 +119,7 @@ app.post("/upload", upload.single("image"), async (req, res) => {
           dataUri: `data:image/webp;base64,${webpBuffer.toString("base64")}`,
           sizeKB: +(webpBuffer.length / 1024).toFixed(2),
         },
-        avif: {
-          dataUri: `data:image/avif;base64,${avifBuffer.toString("base64")}`,
-          sizeKB: +(avifBuffer.length / 1024).toFixed(2),
-        },
+        avif,
       });
     }
 

@@ -323,6 +323,9 @@
             const card = document.createElement("div");
             card.className = "result-card";
             const fileBase = `${baseName}-${r.width}x${r.height}`;
+            const avifLink = r.avif
+              ? `<a href="${r.avif.dataUri}" download="${fileBase}.avif">AVIF<span class="kb">${r.avif.sizeKB} KB</span></a>`
+              : "";
             card.innerHTML = `
               <div class="imgwrap"><img src="${r.webp.dataUri}" alt="${r.label}" /></div>
               <div class="info">
@@ -330,7 +333,7 @@
                 <div class="dims">${r.width}×${r.height}px</div>
                 <div class="downloads">
                   <a href="${r.webp.dataUri}" download="${fileBase}.webp">WebP<span class="kb">${r.webp.sizeKB} KB</span></a>
-                  <a href="${r.avif.dataUri}" download="${fileBase}.avif">AVIF<span class="kb">${r.avif.sizeKB} KB</span></a>
+                  ${avifLink}
                 </div>
               </div>
             `;
