@@ -311,7 +311,10 @@
         try {
           const res = await fetch("/upload", { method: "POST", body: formData });
           const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Error del servidor");
+          if (!res.ok) {
+            const msg = data.detail ? `${data.error} (${data.detail})` : data.error;
+            throw new Error(msg || "Error del servidor");
+          }
 
           statusEl.innerHTML = `Original: ${data.original.width}×${data.original.height}px (${data.original.sizeKB} KB) → ${data.results.length} resultados`;
 

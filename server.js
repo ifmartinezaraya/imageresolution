@@ -7,6 +7,11 @@ const app = express();
 // Puerto configurable via variable de entorno (necesario para desplegar en Render/Railway/etc.)
 const port = process.env.PORT || 1337;
 
+// Ajustes de memoria: importante para instancias pequeñas (p. ej. plan gratuito de Render, 512 MB).
+// Desactivamos la caché de libvips y limitamos la concurrencia para evitar quedarnos sin RAM.
+sharp.cache(false);
+sharp.concurrency(1);
+
 // Multer: guardamos el archivo en memoria y limitamos el tamaño a 25 MB
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -84,16 +89,17 @@ app.post("/upload", upload.single("image"), async (req, res) => {
 
     const results = [];
     for (const size of sizes) {
-      const [webpBuffer, avifBuffer] = await Promise.all([
-        sharp(originalImage)
-          .resize({ width: size.width, height: size.height, fit })
-          .webp({ quality: 80 })
-          .toBuffer(),
-        sharp(originalImage)
-          .resize({ width: size.width, height: size.height, fit })
-          .avif({ quality: 50 })
-          .toBuffer(),
-      ]);
+      // Procesamos secuencialmente (WebP y luego AVIF) para mantener bajo el uso de memoria.
+      const webpBuffer = await sharp(originalImage)
+        .resize({ width: size.width, height: size.height, fit })
+        .webp({ quality: 80 })
+        .toBuffer();
+
+      // AVIF con effort bajo (2): más rápido y menos memoria, ideal para instancias pequeñas.
+      const avifBuffer = await sharp(originalImage)
+        .resize({ width: size.width, height: size.height, fit })
+        .avif({ quality: 50, effort: 2 })
+        .toBuffer();
 
       results.push({
         label: size.label,
@@ -113,7 +119,10 @@ app.post("/upload", upload.single("image"), async (req, res) => {
     res.json({ original, fit, results });
   } catch (err) {
     console.error("Error procesando la imagen:", err);
-    res.status(500).json({ error: "No se pudo procesar la imagen." });
+    res.status(500).json({
+      error: "No se pudo procesar la imagen.",
+      detail: err && err.message ? err.message : String(err),
+    });
   }
 });
 
