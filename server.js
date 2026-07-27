@@ -30,6 +30,15 @@ const DEFAULT_SIZES = [
 
 const VALID_FITS = ["inside", "cover", "contain", "fill", "outside"];
 
+// Formatos de salida soportados. Cada uno define su mimetype, extensión y cómo lo genera sharp.
+const FORMATS = {
+  webp: { mime: "image/webp", ext: "webp", apply: (img) => img.webp({ quality: 80 }) },
+  avif: { mime: "image/avif", ext: "avif", apply: (img) => img.avif({ quality: 50, effort: 2 }) },
+  png: { mime: "image/png", ext: "png", apply: (img) => img.png({ compressionLevel: 9 }) },
+  jpeg: { mime: "image/jpeg", ext: "jpg", apply: (img) => img.jpeg({ quality: 85, mozjpeg: true }) },
+};
+const DEFAULT_FORMATS = ["webp", "avif", "png", "jpeg"];
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
@@ -78,6 +87,20 @@ app.post("/upload", upload.single("image"), async (req, res) => {
     // Modo de ajuste (fit). Por defecto "cover" para llenar el marco exacto.
     const fit = VALID_FITS.includes(req.body.fit) ? req.body.fit : "cover";
 
+    // Formatos de salida. El cliente puede enviar un JSON como ["webp","png"].
+    let formats = DEFAULT_FORMATS;
+    if (req.body.formats) {
+      try {
+        const parsed = JSON.parse(req.body.formats);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((f) => FORMATS[f]);
+          if (filtered.length > 0) formats = filtered;
+        }
+      } catch (e) {
+        return res.status(400).json({ error: "El campo 'formats' no es un JSON válido." });
+      }
+    }
+
     // Metadatos de la imagen original
     const meta = await sharp(originalImage).metadata();
     const original = {
@@ -89,41 +112,38 @@ app.post("/upload", upload.single("image"), async (req, res) => {
 
     const results = [];
     for (const size of sizes) {
-      // Procesamos secuencialmente (WebP y luego AVIF) para mantener bajo el uso de memoria.
-      const webpBuffer = await sharp(originalImage)
-        .resize({ width: size.width, height: size.height, fit })
-        .webp({ quality: 80 })
-        .toBuffer();
-
-      // AVIF con effort bajo (2): más rápido y menos memoria, ideal para instancias pequeñas.
-      // Si el entorno no soporta AVIF, no fallamos: devolvemos solo el WebP.
-      let avif = null;
-      try {
-        const avifBuffer = await sharp(originalImage)
-          .resize({ width: size.width, height: size.height, fit })
-          .avif({ quality: 50, effort: 2 })
-          .toBuffer();
-        avif = {
-          dataUri: `data:image/avif;base64,${avifBuffer.toString("base64")}`,
-          sizeKB: +(avifBuffer.length / 1024).toFixed(2),
-        };
-      } catch (avifErr) {
-        console.warn("AVIF no disponible para este tamaño:", avifErr.message);
+      const outputs = [];
+      // Procesamos cada formato de forma secuencial para mantener bajo el uso de memoria.
+      for (const fmt of formats) {
+        const def = FORMATS[fmt];
+        try {
+          const pipeline = sharp(originalImage).resize({
+            width: size.width,
+            height: size.height,
+            fit,
+          });
+          const buffer = await def.apply(pipeline).toBuffer();
+          outputs.push({
+            format: fmt,
+            ext: def.ext,
+            dataUri: `data:${def.mime};base64,${buffer.toString("base64")}`,
+            sizeKB: +(buffer.length / 1024).toFixed(2),
+          });
+        } catch (fmtErr) {
+          // Si un formato no está disponible (p. ej. AVIF), lo omitimos sin romper todo.
+          console.warn(`Formato ${fmt} no disponible para ${size.label}:`, fmtErr.message);
+        }
       }
 
       results.push({
         label: size.label,
         width: size.width,
         height: size.height,
-        webp: {
-          dataUri: `data:image/webp;base64,${webpBuffer.toString("base64")}`,
-          sizeKB: +(webpBuffer.length / 1024).toFixed(2),
-        },
-        avif,
+        outputs,
       });
     }
 
-    res.json({ original, fit, results });
+    res.json({ original, fit, formats, results });
   } catch (err) {
     console.error("Error procesando la imagen:", err);
     res.status(500).json({

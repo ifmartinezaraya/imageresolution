@@ -86,6 +86,12 @@
         color: #f87171; cursor: pointer; font-size: 1.2rem; padding: 4px 8px;
       }
       .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+      .fmt-check {
+        display: flex; align-items: center; gap: 6px;
+        background: var(--card2); padding: 8px 14px; border-radius: 10px;
+        cursor: pointer; font-size: 0.9rem; user-select: none;
+      }
+      .fmt-check input { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
       button {
         font-family: inherit; font-size: 0.95rem; font-weight: 600;
         border: none; border-radius: 10px; padding: 10px 18px;
@@ -121,9 +127,9 @@
       .result-card .info { padding: 14px; }
       .result-card .label { font-weight: 600; }
       .result-card .dims { color: var(--muted); font-size: 0.85rem; margin: 4px 0 12px; }
-      .downloads { display: flex; gap: 8px; }
+      .downloads { display: flex; flex-wrap: wrap; gap: 8px; }
       .downloads a {
-        flex: 1; text-align: center; text-decoration: none;
+        flex: 1 1 calc(50% - 4px); text-align: center; text-decoration: none;
         font-size: 0.85rem; font-weight: 600; padding: 8px; border-radius: 8px;
         background: var(--card2); color: var(--text); border: 1px solid var(--border);
       }
@@ -176,6 +182,17 @@
               <option value="fill">Estirar (fill)</option>
             </select>
           </label>
+        </div>
+      </div>
+
+      <!-- Paso 2b: formatos -->
+      <div class="panel">
+        <h2>Formatos de salida</h2>
+        <div class="controls" id="formatsList">
+          <label class="fmt-check"><input type="checkbox" value="webp" checked /> WebP</label>
+          <label class="fmt-check"><input type="checkbox" value="avif" checked /> AVIF</label>
+          <label class="fmt-check"><input type="checkbox" value="png" checked /> PNG</label>
+          <label class="fmt-check"><input type="checkbox" value="jpeg" checked /> JPEG</label>
         </div>
       </div>
 
@@ -303,10 +320,19 @@
         statusEl.innerHTML = `<div class="spinner"></div>Procesando ${sizes.length} tamaño(s)...`;
         processBtn.disabled = true;
 
+        const formats = [...document.querySelectorAll("#formatsList input:checked")].map(
+          (c) => c.value
+        );
+        if (formats.length === 0) {
+          alert("Selecciona al menos un formato de salida.");
+          return;
+        }
+
         const formData = new FormData();
         formData.append("image", selectedFile);
         formData.append("sizes", JSON.stringify(sizes));
         formData.append("fit", document.getElementById("fitSelect").value);
+        formData.append("formats", JSON.stringify(formats));
 
         try {
           const res = await fetch("/upload", { method: "POST", body: formData });
@@ -320,21 +346,24 @@
 
           const baseName = slugify(selectedFile.name.replace(/\.[^.]+$/, ""));
           for (const r of data.results) {
+            if (!r.outputs || r.outputs.length === 0) continue;
             const card = document.createElement("div");
             card.className = "result-card";
             const fileBase = `${baseName}-${r.width}x${r.height}`;
-            const avifLink = r.avif
-              ? `<a href="${r.avif.dataUri}" download="${fileBase}.avif">AVIF<span class="kb">${r.avif.sizeKB} KB</span></a>`
-              : "";
+            // Vista previa: usamos el primer formato disponible.
+            const previewUri = r.outputs[0].dataUri;
+            const downloadLinks = r.outputs
+              .map(
+                (o) =>
+                  `<a href="${o.dataUri}" download="${fileBase}.${o.ext}">${o.format.toUpperCase()}<span class="kb">${o.sizeKB} KB</span></a>`
+              )
+              .join("");
             card.innerHTML = `
-              <div class="imgwrap"><img src="${r.webp.dataUri}" alt="${r.label}" /></div>
+              <div class="imgwrap"><img src="${previewUri}" alt="${r.label}" /></div>
               <div class="info">
                 <div class="label">${r.label}</div>
                 <div class="dims">${r.width}×${r.height}px</div>
-                <div class="downloads">
-                  <a href="${r.webp.dataUri}" download="${fileBase}.webp">WebP<span class="kb">${r.webp.sizeKB} KB</span></a>
-                  ${avifLink}
-                </div>
+                <div class="downloads">${downloadLinks}</div>
               </div>
             `;
             resultsEl.appendChild(card);
