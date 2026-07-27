@@ -31,11 +31,18 @@ const DEFAULT_SIZES = [
 const VALID_FITS = ["inside", "cover", "contain", "fill", "outside"];
 
 // Formatos de salida soportados. Cada uno define su mimetype, extensión y cómo lo genera sharp.
+// Cada formato define cómo lo genera sharp a partir de una calidad (q, 1-100).
+// PNG es sin pérdidas, así que ignora la calidad y usa compresión máxima.
 const FORMATS = {
-  webp: { mime: "image/webp", ext: "webp", apply: (img) => img.webp({ quality: 80 }) },
-  avif: { mime: "image/avif", ext: "avif", apply: (img) => img.avif({ quality: 50, effort: 2 }) },
+  webp: { mime: "image/webp", ext: "webp", apply: (img, q) => img.webp({ quality: q }) },
+  avif: {
+    mime: "image/avif",
+    ext: "avif",
+    // AVIF es más eficiente: escalamos un poco la calidad para pesos razonables.
+    apply: (img, q) => img.avif({ quality: Math.max(1, Math.round(q * 0.65)), effort: 2 }),
+  },
   png: { mime: "image/png", ext: "png", apply: (img) => img.png({ compressionLevel: 9 }) },
-  jpeg: { mime: "image/jpeg", ext: "jpg", apply: (img) => img.jpeg({ quality: 85, mozjpeg: true }) },
+  jpeg: { mime: "image/jpeg", ext: "jpg", apply: (img, q) => img.jpeg({ quality: q, mozjpeg: true }) },
 };
 const DEFAULT_FORMATS = ["webp", "avif", "png", "jpeg"];
 
@@ -87,6 +94,13 @@ app.post("/upload", upload.single("image"), async (req, res) => {
     // Modo de ajuste (fit). Por defecto "cover" para llenar el marco exacto.
     const fit = VALID_FITS.includes(req.body.fit) ? req.body.fit : "cover";
 
+    // Calidad de compresión (1-100) para formatos con pérdida. Por defecto 80.
+    let quality = 80;
+    if (req.body.quality) {
+      const q = parseInt(req.body.quality, 10);
+      if (Number.isFinite(q) && q >= 1 && q <= 100) quality = q;
+    }
+
     // Formatos de salida. El cliente puede enviar un JSON como ["webp","png"].
     let formats = DEFAULT_FORMATS;
     if (req.body.formats) {
@@ -122,7 +136,7 @@ app.post("/upload", upload.single("image"), async (req, res) => {
             height: size.height,
             fit,
           });
-          const buffer = await def.apply(pipeline).toBuffer();
+          const buffer = await def.apply(pipeline, quality).toBuffer();
           outputs.push({
             format: fmt,
             ext: def.ext,
@@ -143,7 +157,7 @@ app.post("/upload", upload.single("image"), async (req, res) => {
       });
     }
 
-    res.json({ original, fit, formats, results });
+    res.json({ original, fit, formats, quality, results });
   } catch (err) {
     console.error("Error procesando la imagen:", err);
     res.status(500).json({
