@@ -17,8 +17,8 @@ Aplicación web en Node.js para subir una imagen, redimensionarla a **tamaños p
 ## Instalación
 
 ```bash
-git clone https://github.com/warmachine028/imageresizer.git
-cd imageresizer
+git clone https://github.com/ifmartinezaraya/imageresolution.git
+cd imageresolution
 npm install
 ```
 
@@ -54,6 +54,26 @@ Luego abre `http://localhost:1337` en tu navegador.
 | `fit`   | string | `cover` \| `inside` \| `contain` \| `fill` \| `outside` (opc.).    |
 
 Respuesta: JSON con `original`, `fit` y `results[]` (cada uno con `webp` y `avif` en data URI + tamaño en KB).
+
+## Despliegue
+
+El proyecto está listo para desplegarse en cualquier proveedor de Node.js. Escucha en el puerto indicado por la variable de entorno `PORT`.
+
+### Render (recomendado, plan gratuito)
+
+Incluye un `render.yaml` (Blueprint), así que el despliegue es automático:
+
+1. Entra en [dashboard.render.com](https://dashboard.render.com/) e inicia sesión con GitHub.
+2. Pulsa **New +** → **Blueprint**.
+3. Selecciona este repositorio (`ifmartinezaraya/imageresolution`).
+4. Render leerá `render.yaml` y creará el servicio web. Pulsa **Apply**.
+5. En unos minutos tendrás una URL pública (p. ej. `https://imageresolution.onrender.com`).
+
+### Railway
+
+1. Entra en [railway.app](https://railway.app/) e inicia sesión con GitHub.
+2. **New Project** → **Deploy from GitHub repo** → selecciona el repositorio.
+3. Railway detecta Node.js automáticamente y usa `npm start`. Genera un dominio en **Settings → Networking → Generate Domain**.
 
 ## Contribuir
 
